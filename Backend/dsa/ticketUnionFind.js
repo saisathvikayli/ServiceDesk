@@ -1,14 +1,25 @@
+// union-find (disjoint set) keyed by ticket id strings, since ticket ids are
+// mongo ObjectIds, not sequential array indices. sets are created lazily the
+// first time an id is seen, via makeSet().
 class TicketUnionFind {
-  constructor(size) {
-    this.parent = Array.from({ length: size }, (_, index) => index);
-    this.rank = Array.from({ length: size }, () => 0);
+  constructor() {
+    this.parent = new Map();
+    this.rank = new Map();
   }
 
-  find(x) {
-    if (this.parent[x] !== x) {
-      this.parent[x] = this.find(this.parent[x]);
+  makeSet(id) {
+    if (!this.parent.has(id)) {
+      this.parent.set(id, id);
+      this.rank.set(id, 0);
     }
-    return this.parent[x];
+  }
+
+  find(id) {
+    this.makeSet(id);
+    if (this.parent.get(id) !== id) {
+      this.parent.set(id, this.find(this.parent.get(id)));
+    }
+    return this.parent.get(id);
   }
 
   union(x, y) {
@@ -17,17 +28,19 @@ class TicketUnionFind {
 
     if (rootX === rootY) return false;
 
-    if (this.rank[rootX] < this.rank[rootY]) {
-      this.parent[rootX] = rootY;
-    } else if (this.rank[rootX] > this.rank[rootY]) {
-      this.parent[rootY] = rootX;
+    if (this.rank.get(rootX) < this.rank.get(rootY)) {
+      this.parent.set(rootX, rootY);
+    } else if (this.rank.get(rootX) > this.rank.get(rootY)) {
+      this.parent.set(rootY, rootX);
     } else {
-      this.parent[rootY] = rootX;
-      this.rank[rootX] += 1;
+      this.parent.set(rootY, rootX);
+      this.rank.set(rootX, this.rank.get(rootX) + 1);
     }
 
     return true;
   }
 }
 
-export default TicketUnionFind;
+// single shared instance - ticketController imports this same object
+const ticketUnionFind = new TicketUnionFind();
+export default ticketUnionFind;

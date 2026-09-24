@@ -20,8 +20,12 @@ const ticketSchema = new Schema({
         ref: "Priority"
     },
 
+    // matches the lifecycle from the docs: open -> assigned -> in-progress -> resolved -> closed
+    // (+ reopened, escalated)
     status: {
-        type: String
+        type: String,
+        enum: ["open", "assigned", "in-progress", "resolved", "closed", "reopened", "escalated"],
+        default: "open"
     },
 
     raisedBy: {

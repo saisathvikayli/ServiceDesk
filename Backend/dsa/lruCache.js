@@ -24,6 +24,11 @@ class LruCache {
       this.cache.delete(oldestKey);
     }
   }
+
+  // used when an item is updated/deleted, so a stale copy doesn't keep getting served
+  delete(key) {
+    this.cache.delete(key);
+  }
 }
 
 export default LruCache;
