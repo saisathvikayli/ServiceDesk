@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Edit3, Plus, Search, Trash2, X } from 'lucide-react'
 import api, { getErrorMessage } from '../lib/api'
 
-function ResourcePage({ token, config }) {
+function ResourcePage({ config }) {
   const {
     endpoint,
     title,
@@ -27,14 +27,14 @@ function ResourcePage({ token, config }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await api.get(endpoint, { headers: { Authorization: `Bearer ${token}` } })
+      const response = await api.get(endpoint)
       setRecords(response.data)
     } catch (error) {
       setNotice({ type: 'error', text: getErrorMessage(error) })
     } finally {
       setLoading(false)
     }
-  }, [endpoint, token])
+  }, [endpoint])
 
   useEffect(() => {
     load()
@@ -69,11 +69,10 @@ function ResourcePage({ token, config }) {
     setSaving(true)
     setNotice(null)
     try {
-      const configHeaders = { headers: { Authorization: `Bearer ${token}` } }
       if (editingId) {
-        await api.put(`${endpoint}/${editingId}`, form, configHeaders)
+        await api.put(`${endpoint}/${editingId}`, form)
       } else {
-        await api.post(endpoint, form, configHeaders)
+        await api.post(endpoint, form)
       }
       setModalOpen(false)
       setNotice({
@@ -91,7 +90,7 @@ function ResourcePage({ token, config }) {
   const remove = async (id) => {
     if (!window.confirm(`Delete this ${singular.toLowerCase()}?`)) return
     try {
-      await api.delete(`${endpoint}/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await api.delete(`${endpoint}/${id}`)
       setNotice({ type: 'success', text: `${singular} deleted successfully.` })
       await load()
     } catch (error) {

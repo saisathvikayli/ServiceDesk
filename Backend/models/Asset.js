@@ -18,9 +18,10 @@ const assetSchema = new Schema({
     },
 
     status: {
-        type: String,
-        required: true
-    },
+    type: String,
+    enum: ["procured", "assigned", "in-repair", "retired"],
+    default: "procured"
+},
 
     assignedTo: {
         type: Schema.Types.ObjectId,

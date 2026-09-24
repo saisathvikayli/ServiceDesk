@@ -2,7 +2,8 @@ import { model, Schema } from "mongoose";
 
 const slaSchema = new Schema({
     priorityId: {
-        type: Number,
+        type: Schema.Types.ObjectId,
+        ref: "Priority",
         required: true
     },
 
@@ -17,8 +18,8 @@ const slaSchema = new Schema({
     },
 
     businessHoursOnly: {
-        type: Number,
-        required: true
+        type: Boolean,
+        default: false
     }
 });
 

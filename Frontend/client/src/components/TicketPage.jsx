@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Eye, Plus, Search, TicketCheck, Trash2, X } from 'lucide-react'
 import api, { getErrorMessage } from '../lib/api'
 
-function TicketPage({ token, user }) {
+function TicketPage() {
   const [tickets, setTickets] = useState([])
   const [categories, setCategories] = useState([])
   const [priorities, setPriorities] = useState([])
@@ -22,12 +22,11 @@ function TicketPage({ token, user }) {
 
   const loadData = useCallback(async () => {
     setLoading(true)
-    const headers = { Authorization: `Bearer ${token}` }
     try {
       const [ticketsRes, categoriesRes, prioritiesRes] = await Promise.all([
-        api.get('/tickets', { headers }),
-        api.get('/categories', { headers }),
-        api.get('/priorities', { headers }),
+        api.get('/tickets'),
+        api.get('/categories'),
+        api.get('/priorities'),
       ])
       setTickets(ticketsRes.data)
       setCategories(categoriesRes.data)
@@ -37,7 +36,7 @@ function TicketPage({ token, user }) {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -58,7 +57,7 @@ function TicketPage({ token, user }) {
     setSaving(true)
     setNotice(null)
     try {
-      await api.post('/tickets', form, { headers: { Authorization: `Bearer ${token}` } })
+      await api.post('/tickets', form)
       setNotice({ type: 'success', text: 'Ticket created successfully.' })
       setFormOpen(false)
       setForm({ title: '', description: '', status: 'open', categoryId: '', priorityId: '' })
@@ -73,7 +72,7 @@ function TicketPage({ token, user }) {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this ticket?')) return
     try {
-      await api.delete(`/tickets/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      await api.delete(`/tickets/${id}`)
       setNotice({ type: 'success', text: 'Ticket deleted.' })
       if (selected?._id === id) setSelected(null)
       await loadData()
@@ -242,7 +241,7 @@ function TicketPage({ token, user }) {
                     <option value="">Select Priority</option>
                     {priorities.map((p) => (
                       <option key={p._id} value={p._id}>
-                        {p.name || p.label}
+                        {p.p_name}
                       </option>
                     ))}
                   </select>

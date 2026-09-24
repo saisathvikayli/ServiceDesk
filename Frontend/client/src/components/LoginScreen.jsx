@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import API from '../lib/api'; // or ../api/axiosInstance
+import API from '../lib/api';
 
 export default function LoginScreen({ onAuthenticated }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -34,7 +34,7 @@ export default function LoginScreen({ onAuthenticated }) {
         if (res.data.token) {
           localStorage.setItem('servicedesk_token', res.data.token);
           localStorage.setItem('servicedesk_user', JSON.stringify(res.data.user));
-          if (onAuthenticated) onAuthenticated(email, password);
+          if (onAuthenticated) await onAuthenticated(email, password);
           navigate('/');
         } else {
           setIsRegister(false);

@@ -1,8 +1,7 @@
 import axios from 'axios';
 
-// Uses relative path — Vite automatically proxies /api to http://localhost:5000
 const API = axios.create({
-  baseURL: '/api', 
+  baseURL: '/api',
   withCredentials: true,
 });
 
@@ -21,13 +20,14 @@ API.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
+        // backend returns { token }, not { accessToken }
         const { data } = await axios.post(
           '/api/auth/refresh',
           {},
           { withCredentials: true }
         );
-        localStorage.setItem('servicedesk_token', data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+        localStorage.setItem('servicedesk_token', data.token);
+        originalRequest.headers.Authorization = `Bearer ${data.token}`;
         return API(originalRequest);
       } catch (refreshErr) {
         localStorage.removeItem('servicedesk_token');
@@ -38,5 +38,8 @@ API.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const getErrorMessage = (error) =>
+  error.response?.data?.message || error.message || 'Something went wrong.';
 
 export default API;

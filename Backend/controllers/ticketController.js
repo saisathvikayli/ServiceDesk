@@ -62,11 +62,11 @@ export const createTicket = async (req, res) => {
     // AI Classification run if priority/category is missing
     if (!categoryId || !priorityId) {
       const aiMeta = await classifyTicketPrompt(title, description);
-      
+
       // Assign priority from AI if not explicitly provided
       if (!priorityId && aiMeta.priority) {
         const foundPriority = await Priority.findOne({
-          name: new RegExp(`^${aiMeta.priority}$`, "i"),
+          p_name: new RegExp(`^${aiMeta.priority}$`, "i"),
         });
         if (foundPriority) priorityId = foundPriority._id;
       }

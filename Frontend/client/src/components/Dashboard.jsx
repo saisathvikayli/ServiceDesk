@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, BookOpen, Boxes, CheckCircle2, ClipboardList, HardDrive, RefreshCw, TicketCheck, Truck } from 'lucide-react'
 import api, { getErrorMessage } from '../lib/api'
 
@@ -9,7 +10,9 @@ const cards = [
   { key: 'knowledge', label: 'Knowledge articles', icon: BookOpen, color: 'bg-[#fff0ee] text-[#a43e3a]' },
 ]
 
-function Dashboard({ token, onNavigate }) {
+function Dashboard() {
+  const navigate = useNavigate()
+  const onNavigate = (page) => navigate(`/${page}`)
   const [data, setData] = useState({ tickets: [], categories: [], assets: [], knowledge: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -17,12 +20,11 @@ function Dashboard({ token, onNavigate }) {
   const loadData = useCallback(async () => {
     setLoading(true)
     setError('')
-    const headers = { Authorization: `Bearer ${token}` }
     try {
       const [tickets, categories, assets, knowledge] = await Promise.all([
-        api.get('/tickets', { headers }),
-        api.get('/categories', { headers }),
-        api.get('/assets', { headers }),
+        api.get('/tickets'),
+        api.get('/categories'),
+        api.get('/assets'),
         api.get('/knowledge-articles'),
       ])
       setData({
@@ -36,7 +38,7 @@ function Dashboard({ token, onNavigate }) {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [])
 
   useEffect(() => {
     loadData()

@@ -2,7 +2,7 @@ import { model, Schema } from "mongoose";
 const categorySchema=new Schema({
     cat_name:{
         type:String,
-        requried:true
+        required:true
     },
 
     default_priority:{
