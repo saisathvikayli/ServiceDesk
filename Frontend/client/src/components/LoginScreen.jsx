@@ -1,16 +1,176 @@
-import { useState } from 'react'
-import { ArrowRight, Server, ShieldCheck, UserPlus } from 'lucide-react'
-import api, { getErrorMessage } from '../lib/api'
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import API from '../lib/api'; // or ../api/axiosInstance
 
-function LoginScreen({ onAuthenticated }) {
-  const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }))
-  const submit = async (event) => { event.preventDefault(); setLoading(true); setError(''); try { const path = mode === 'login' ? '/auth/login' : '/auth/register'; const body = mode === 'login' ? { email: form.email, passwordHash: form.password } : { name: form.name, email: form.email, passwordHash: form.password, role: form.role }; const response = await api.post(path, body); onAuthenticated(response.data) } catch (requestError) { setError(getErrorMessage(requestError)) } finally { setLoading(false) } }
-  const isLogin = mode === 'login'
-  return <main className="min-h-screen bg-[#f5f7f6] text-[#17252a] lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.7fr)]"><section className="flex min-h-screen flex-col justify-center bg-white px-6 py-12 sm:px-12 lg:px-24"><div className="w-full max-w-md"><div className="mb-12 flex h-11 w-11 items-center justify-center bg-[#f2c14e] text-[#17252a]"><ShieldCheck size={22} /></div><p className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-[#147a76]">Service desk / control room</p><h1 className="max-w-lg text-5xl font-extrabold leading-[0.98] tracking-[-0.07em] text-[#17252a] sm:text-6xl">{isLogin ? 'Make support feel simpler.' : 'Start your service desk.'}</h1><p className="mt-6 max-w-md text-base leading-7 text-[#718087]">{isLogin ? 'One clear workspace for the categories that keep your service operation moving.' : 'Create an account and give every request a clear path forward.'}</p><form className="mt-10 grid gap-3" onSubmit={submit}>{!isLogin && <><label className="text-xs font-bold" htmlFor="name">Full name</label><input className="h-12 border border-[#dce5e2] bg-[#f5f7f6] px-4 text-sm outline-none focus:border-[#147a76] focus:ring-4 focus:ring-[#147a76]/10" id="name" value={form.name} onChange={(event) => update('name', event.target.value)} required placeholder="Alex Morgan" /></>}<label className="text-xs font-bold" htmlFor="email">Work email</label><input className="h-12 border border-[#dce5e2] bg-[#f5f7f6] px-4 text-sm outline-none focus:border-[#147a76] focus:ring-4 focus:ring-[#147a76]/10" id="email" type="email" value={form.email} onChange={(event) => update('email', event.target.value)} required autoComplete="email" placeholder="you@company.com" /><label className="mt-3 text-xs font-bold" htmlFor="password">Password</label><input className="h-12 border border-[#dce5e2] bg-[#f5f7f6] px-4 text-sm outline-none focus:border-[#147a76] focus:ring-4 focus:ring-[#147a76]/10" id="password" type="password" minLength={8} value={form.password} onChange={(event) => update('password', event.target.value)} required autoComplete={isLogin ? 'current-password' : 'new-password'} placeholder="At least 8 characters" />{!isLogin && <><label className="mt-3 text-xs font-bold" htmlFor="role">Account type</label><select className="h-12 border border-[#dce5e2] bg-[#f5f7f6] px-4 text-sm outline-none focus:border-[#147a76]" id="role" value={form.role} onChange={(event) => update('role', event.target.value)}><option value="user">Requester</option><option value="agent">Agent</option><option value="admin">Administrator</option></select></>}{error && <p className="mt-2 border-l-2 border-[#bd4b46] bg-[#fff5f4] px-3 py-2 text-sm text-[#a43e3a]">{error}</p>}<button className="mt-5 flex h-12 items-center justify-between bg-[#147a76] px-4 text-sm font-extrabold text-white hover:bg-[#0c5b59] disabled:cursor-wait disabled:opacity-60" type="submit" disabled={loading}>{loading ? 'Please wait...' : <>{isLogin ? 'Enter workspace' : 'Create account'} {isLogin ? <ArrowRight size={17} /> : <UserPlus size={17} />}</>}</button></form><button className="mt-6 text-left text-xs font-bold text-[#147a76] hover:underline" type="button" onClick={() => { setMode(isLogin ? 'register' : 'login'); setError('') }}>{isLogin ? 'New to the service desk? Create an account' : 'Already have an account? Sign in'}</button><div className="mt-10 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#9aa8a8]"><Server size={13} /> API connected at localhost:5000</div></div></section><aside className="relative hidden overflow-hidden bg-[#0c5b59] px-12 py-16 text-[#e9f5ef] lg:flex lg:flex-col lg:justify-end lg:px-20"><div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#9bd0c6 1px, transparent 1px), linear-gradient(90deg, #9bd0c6 1px, transparent 1px)', backgroundSize: '48px 48px' }} /><div className="relative"><p className="mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-[#f2c14e]">Operations / 01</p><h2 className="max-w-md text-5xl font-extrabold leading-none tracking-[-0.07em]">A calm command centre for busy teams.</h2><p className="mt-6 max-w-sm text-sm leading-7 text-[#a9ccc5]">Tickets, assets, service levels, and knowledge in one shared operating picture.</p><div className="mt-16 border-t border-white/20 pt-4"><strong className="text-2xl text-[#f2c14e]">24/7</strong><span className="ml-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#a9ccc5]">service visibility</span></div></div></aside></main>
+export default function LoginScreen({ onAuthenticated }) {
+  const [isRegister, setIsRegister] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('employee');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    // Client-side validation check
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    try {
+      if (isRegister) {
+        // Registration endpoint
+        const res = await API.post('/auth/register', {
+          name: fullName,
+          email: email.trim(),
+          password: password,
+          role: role,
+        });
+        // Auto-login after registration or pass token
+        if (res.data.token) {
+          localStorage.setItem('servicedesk_token', res.data.token);
+          localStorage.setItem('servicedesk_user', JSON.stringify(res.data.user));
+          if (onAuthenticated) onAuthenticated(email, password);
+          navigate('/');
+        } else {
+          setIsRegister(false);
+          setError('Account created successfully! Please sign in.');
+        }
+      } else {
+        // Login endpoint
+        const user = await onAuthenticated(email.trim(), password);
+        if (user) navigate('/');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Authentication failed. Please try again.');
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-slate-100 items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">
+          {isRegister ? 'Start your service desk.' : 'Welcome back'}
+        </h2>
+        <p className="text-sm text-slate-500 mb-6">
+          {isRegister
+            ? 'Create an account and give every request a clear path forward.'
+            : 'Enter your credentials to access your control room.'}
+        </p>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isRegister && (
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
+                Full name
+              </label>
+              <input
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-teal-600"
+                placeholder="John Doe"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
+              Work email
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-teal-600"
+              placeholder="you@company.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-teal-600"
+              placeholder="At least 8 characters"
+            />
+          </div>
+
+          {isRegister && (
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
+                Account type
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-teal-600"
+              >
+                <option value="employee">Requester (Employee)</option>
+                <option value="technician">Technician</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-full py-3 bg-teal-700 text-white font-medium text-sm rounded-lg hover:bg-teal-800 transition"
+          >
+            {isRegister ? 'Create account' : 'Enter workspace'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-slate-600">
+          {isRegister ? (
+            <p>
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegister(false);
+                  setError('');
+                }}
+                className="text-teal-700 font-semibold hover:underline"
+              >
+                Sign in
+              </button>
+            </p>
+          ) : (
+            <p>
+              New to the service desk?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegister(true);
+                  setError('');
+                }}
+                className="text-teal-700 font-semibold hover:underline"
+              >
+                Create an account
+              </button>
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
-
-export default LoginScreen

@@ -5,6 +5,8 @@ import Priority from "../models/Priority.js";
 import slaHeap from "../dsa/slaHeap.js";
 import ticketUnionFind from "../dsa/ticketUnionFind.js";
 import searchTrie from "../dsa/searchTrie.js";
+import { classifyTicketPrompt } from "../utils/aiPromptTemplates.js";
+
 
 // works out the due date from the priority's slaHours, so tickets always get
 // a due date the moment they're created
@@ -55,10 +57,27 @@ const detectDuplicate = async (ticket) => {
 
 export const createTicket = async (req, res) => {
   try {
-    const dueAt = await computeDueAt(req.body.priorityId);
+    let { categoryId, priorityId, title, description } = req.body;
+
+    // AI Classification run if priority/category is missing
+    if (!categoryId || !priorityId) {
+      const aiMeta = await classifyTicketPrompt(title, description);
+      
+      // Assign priority from AI if not explicitly provided
+      if (!priorityId && aiMeta.priority) {
+        const foundPriority = await Priority.findOne({
+          name: new RegExp(`^${aiMeta.priority}$`, "i"),
+        });
+        if (foundPriority) priorityId = foundPriority._id;
+      }
+    }
+
+    const dueAt = await computeDueAt(priorityId);
 
     const ticket = await Ticket.create({
       ...req.body,
+      categoryId,
+      priorityId,
       raisedBy: req.user.id,
       departmentId: req.body.departmentId || req.user.departmentId,
       dueAt,
