@@ -1,0 +1,43 @@
+### Log in with the existing admin user
+# @name login
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "api-category-test@example.com",
+  "passwordHash": "TestPassword123"
+}
+
+### Read all categories (GET)
+# @name getCategories
+GET http://localhost:5000/api/categories
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Create a category (POST)
+# @name createCategory
+POST http://localhost:5000/api/categories
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.$.token}}
+
+{
+  "cat_name": "HTTP Test Category 2",
+  "default_priority": 2
+}
+
+### Read the created category (GET)
+GET http://localhost:5000/api/categories/{{createCategory.response.body.$._id}}
+Authorization: Bearer {{login.response.body.$.token}}
+
+### Update the created category (PUT)
+PUT http://localhost:5000/api/categories/{{createCategory.response.body.$._id}}
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.$.token}}
+
+{
+  "cat_name": "Updated HTTP Test Category",
+  "default_priority": 1
+}
+
+### Delete the created category (DELETE)
+DELETE http://localhost:5000/api/categories/{{createCategory.response.body.$._id}}
+Authorization: Bearer {{login.response.body.$.token}}

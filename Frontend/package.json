@@ -1,0 +1,10 @@
+{
+  "name": "servicedesk-frontend",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix client run dev -- --host 0.0.0.0",
+    "dev": "npm --prefix client run dev -- --host 0.0.0.0",
+    "build": "npm --prefix client run build",
+    "lint": "npm --prefix client run lint"
+  }
+}

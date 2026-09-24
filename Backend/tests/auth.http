@@ -1,0 +1,29 @@
+### Protected requests require authentication
+GET http://localhost:5000/api/categories
+
+### Register an admin user and capture the returned token
+# @name register
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "API Test Admin",
+  "email": "api-test@example.com",
+  "passwordHash": "TestPassword123",
+  "role": "admin"
+}
+
+### Login with the registered user
+# @name login
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "api-test@example.com",
+  "passwordHash": "TestPassword123"
+}
+
+### Read the authenticated user's profile
+GET http://localhost:5000/api/auth/me
+# The backend requires the word Bearer before the login token.
+Authorization: Bearer {{login.response.body.$.token}}

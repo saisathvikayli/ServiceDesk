@@ -1,0 +1,11 @@
+{
+  "name": "servicedesk",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix Backend start",
+    "backend": "npm --prefix Backend run dev",
+    "frontend": "npm --prefix Frontend/client run dev -- --host 0.0.0.0",
+    "build": "npm --prefix Frontend/client run build",
+    "lint": "npm --prefix Frontend/client run lint"
+  }
+}
