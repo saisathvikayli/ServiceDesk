@@ -13,10 +13,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings2,
-  ShieldCheck,
   Truck,
   X,
 } from 'lucide-react'
+import LogoIcon from './LogoIcon'
 
 const navigation = [
   { id: 'dashboard', label: 'Overview', icon: BarChart3, roles: ['employee', 'technician', 'manager', 'admin'] },
@@ -54,15 +54,12 @@ export default function AppShell({ user, activePage, onNavigate, onLogout, child
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[#dce5e2] bg-[#0c5b59] text-white transition-all duration-200 ${
-          collapsed ? 'w-[76px]' : 'w-[252px]'
-        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[#dce5e2] bg-[#0c5b59] text-white transition-all duration-200 ${collapsed ? 'w-[76px]' : 'w-[252px]'
+          } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         <div className="flex h-[72px] items-center justify-between border-b border-white/10 px-5">
           <button className="flex items-center gap-3" type="button" onClick={() => navigate('dashboard')}>
-            <span className="flex h-8 w-8 items-center justify-center bg-[#f2c14e] text-[#17252a]">
-              <ShieldCheck size={17} />
-            </span>
+            <LogoIcon size={32} />
             {!collapsed && (
               <span className="font-extrabold tracking-[-0.06em]">
                 service<span className="text-[#f2c14e]">/</span>desk
@@ -86,11 +83,10 @@ export default function AppShell({ user, activePage, onNavigate, onLogout, child
               type="button"
               onClick={() => navigate(id)}
               title={collapsed ? label : undefined}
-              className={`group flex w-full items-center gap-3 px-3 py-3 text-left text-sm transition ${
-                activePage === id
+              className={`group flex w-full items-center gap-3 px-3 py-3 text-left text-sm transition ${activePage === id
                   ? 'bg-white/12 font-bold text-white'
                   : 'text-[#b8d5d0] hover:bg-white/8 hover:text-white'
-              } ${collapsed ? 'justify-center' : ''}`}
+                } ${collapsed ? 'justify-center' : ''}`}
             >
               <Icon size={18} className={activePage === id ? 'text-[#f2c14e]' : 'text-[#8bbdb5]'} />
               {!collapsed && <span>{label}</span>}
@@ -106,9 +102,8 @@ export default function AppShell({ user, activePage, onNavigate, onLogout, child
             type="button"
             onClick={() => navigate('profile')}
             title={collapsed ? 'Profile' : undefined}
-            className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm text-[#b8d5d0] hover:bg-white/8 hover:text-white ${
-              activePage === 'profile' ? 'bg-white/12 font-bold text-white' : ''
-            } ${collapsed ? 'justify-center' : ''}`}
+            className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm text-[#b8d5d0] hover:bg-white/8 hover:text-white ${activePage === 'profile' ? 'bg-white/12 font-bold text-white' : ''
+              } ${collapsed ? 'justify-center' : ''}`}
           >
             <Settings2 size={18} />
             {!collapsed && <span>Account settings</span>}
@@ -117,9 +112,8 @@ export default function AppShell({ user, activePage, onNavigate, onLogout, child
             type="button"
             onClick={onLogout}
             title={collapsed ? 'Sign out' : undefined}
-            className={`mt-1 flex w-full items-center gap-3 px-3 py-3 text-left text-sm text-[#b8d5d0] hover:bg-white/8 hover:text-white ${
-              collapsed ? 'justify-center' : ''
-            }`}
+            className={`mt-1 flex w-full items-center gap-3 px-3 py-3 text-left text-sm text-[#b8d5d0] hover:bg-white/8 hover:text-white ${collapsed ? 'justify-center' : ''
+              }`}
           >
             <LogOut size={18} />
             {!collapsed && <span>Sign out</span>}

@@ -4,21 +4,21 @@
 
     0%,
     100% {
-        transform: translate(0, 0) scale(1);
+        transform: translate(10, 0) scale(2);
     }
 
     33% {
-        transform: translate(6%, -8%) scale(1.08);
+        transform: translate(6%, -8%) scale(4.08);
     }
 
     66% {
-        transform: translate(-5%, 6%) scale(0.95);
+        transform: translate(-5%, 6%) scale(10.95);
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
+        animation-duration: 0.1ms !important;
+        animation-iteration-count: 5 !important;
     }
 }

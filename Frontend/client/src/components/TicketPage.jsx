@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useCallback } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
-import { AlertTriangle, Clock, MessageSquare } from 'lucide-react'
+import { AlertTriangle, Clock, MessageSquare, Plus, X } from 'lucide-react'
 
 export default function TicketPage() {
   const { user } = useContext(AuthContext)
@@ -11,7 +11,19 @@ export default function TicketPage() {
   const [filter, setFilter] = useState('all') // 'all', 'assigned', 'unassigned'
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [technicians, setTechnicians] = useState([])
+  const [categories, setCategories] = useState([])
+  const [priorities, setPriorities] = useState([])
   const [commentText, setCommentText] = useState('')
+
+  // Create Ticket Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    priority: '',
+  })
 
   const canManageTickets = ['technician', 'manager', 'admin'].includes(user?.role)
 
@@ -42,12 +54,56 @@ export default function TicketPage() {
     }
   }, [])
 
+  const fetchMetadata = useCallback(async () => {
+    try {
+      const [catRes, prioRes] = await Promise.all([
+        api.get('/categories').catch(() => ({ data: [] })),
+        api.get('/priorities').catch(() => ({ data: [] })),
+      ])
+      const catList = Array.isArray(catRes?.data) ? catRes.data : catRes?.data?.categories || []
+      const prioList = Array.isArray(prioRes?.data) ? prioRes.data : prioRes?.data?.priorities || []
+      setCategories(catList)
+      setPriorities(prioList)
+    } catch (err) {
+      console.warn('Could not load categories or priorities:', err?.message)
+    }
+  }, [])
+
   useEffect(() => {
     fetchTickets()
+    fetchMetadata()
     if (canManageTickets) {
       fetchTechnicians()
     }
-  }, [user, canManageTickets, fetchTickets, fetchTechnicians])
+  }, [user, canManageTickets, fetchTickets, fetchTechnicians, fetchMetadata])
+
+  const handleCreateTicket = async (e) => {
+    e.preventDefault()
+    if (!formData.title.trim() || !formData.description.trim()) {
+      return toast.error('Title and description are required')
+    }
+
+    try {
+      setCreating(true)
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        ...(formData.category && { category: formData.category }),
+        ...(formData.priority && { priority: formData.priority }),
+      }
+
+      await api.post('/tickets', payload)
+      toast.success('Ticket created successfully!')
+      setIsModalOpen(false)
+      setFormData({ title: '', description: '', category: '', priority: '' })
+      fetchTickets()
+    } catch (err) {
+      console.error('Create ticket error:', err)
+      toast.error(err.response?.data?.message || 'Failed to create ticket')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const handleAssign = async (ticketId, technicianId) => {
     try {
@@ -153,15 +209,21 @@ export default function TicketPage() {
           <h1 className="text-2xl font-bold text-[#17252a]">Support Tickets</h1>
           <p className="text-sm text-[#718087]">Manage, assign, and track service requests and SLAs.</p>
         </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-[#0c5b59] hover:bg-[#094745] text-white px-4 py-2 rounded-lg font-semibold text-sm transition shadow-sm"
+        >
+          <Plus size={18} />
+          Create Ticket
+        </button>
       </div>
 
       {/* Queue Filter Tabs */}
       <div className="flex gap-2 border-b border-[#dce5e2] pb-2">
         <button
           onClick={() => setFilter('all')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-            filter === 'all' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
-          }`}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition ${filter === 'all' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
+            }`}
         >
           All Queue ({tickets.length})
         </button>
@@ -169,17 +231,15 @@ export default function TicketPage() {
           <>
             <button
               onClick={() => setFilter('assigned')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-                filter === 'assigned' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
-              }`}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition ${filter === 'assigned' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
+                }`}
             >
               Assigned to Me
             </button>
             <button
               onClick={() => setFilter('unassigned')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition ${
-                filter === 'unassigned' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
-              }`}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition ${filter === 'unassigned' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
+                }`}
             >
               Unassigned Queue
             </button>
@@ -204,9 +264,8 @@ export default function TicketPage() {
                 <div
                   key={ticketId}
                   onClick={() => setSelectedTicket(t)}
-                  className={`p-4 bg-white rounded-lg border cursor-pointer transition hover:border-[#0c5b59] ${
-                    isSelected ? 'ring-2 ring-[#0c5b59] border-transparent' : 'border-[#dce5e2]'
-                  }`}
+                  className={`p-4 bg-white rounded-lg border cursor-pointer transition hover:border-[#0c5b59] ${isSelected ? 'ring-2 ring-[#0c5b59] border-transparent' : 'border-[#dce5e2]'
+                    }`}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-semibold text-[#17252a]">{t.title || t.subject || 'Untitled Ticket'}</h3>
@@ -247,7 +306,7 @@ export default function TicketPage() {
               {canManageTickets && (
                 <div className="space-y-3 bg-[#f5f7f6] p-3 rounded-md border border-[#dce5e2]">
                   <p className="text-xs font-bold text-[#0c5b59] uppercase tracking-wider">Management Actions</p>
-                  
+
                   {/* Reassign Ticket */}
                   <div>
                     <label className="block text-xs text-[#718087] mb-1">Assign Technician</label>
@@ -329,6 +388,108 @@ export default function TicketPage() {
           )}
         </div>
       </div>
+
+      {/* CREATE TICKET MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-lg rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[#dce5e2]">
+              <h2 className="text-lg font-bold text-[#17252a]">Create Support Ticket</h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#17252a] uppercase mb-1">
+                  Ticket Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Printer not responding on 3rd floor"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full text-sm p-2.5 border border-[#dce5e2] rounded-md focus:outline-none focus:ring-2 focus:ring-[#0c5b59]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#17252a] uppercase mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full text-sm p-2.5 border border-[#dce5e2] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#0c5b59]"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat._id || cat.id} value={cat._id || cat.id}>
+                        {cat.cat_name || cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#17252a] uppercase mb-1">
+                    Priority
+                  </label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                    className="w-full text-sm p-2.5 border border-[#dce5e2] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#0c5b59]"
+                  >
+                    <option value="">Select Priority</option>
+                    {priorities.map((prio) => (
+                      <option key={prio._id || prio.id} value={prio._id || prio.id}>
+                        {prio.p_name || prio.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#17252a] uppercase mb-1">
+                  Description *
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Provide detailed information about the issue..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full text-sm p-2.5 border border-[#dce5e2] rounded-md focus:outline-none focus:ring-2 focus:ring-[#0c5b59]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#dce5e2]">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold text-[#718087] hover:bg-gray-100 rounded-md transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-[#0c5b59] hover:bg-[#094745] rounded-md transition disabled:opacity-50"
+                >
+                  {creating ? 'Submitting...' : 'Submit Ticket'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
