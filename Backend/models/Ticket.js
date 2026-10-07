@@ -1,76 +1,36 @@
-import { model, Schema } from "mongoose";
-const ticketSchema = new Schema({
+import mongoose from "mongoose";
 
-    title: {
-        type: String,
-        required: true
-    },
-
-    description: {
-        type: String
-    },
-
-    categoryId: {
-        type: Schema.Types.ObjectId,
-        ref: "Category"
-    },
-
-    priorityId: {
-        type: Schema.Types.ObjectId,
-        ref: "Priority"
-    },
-
-    // matches the lifecycle from the docs: open -> assigned -> in-progress -> resolved -> closed
-    // (+ reopened, escalated)
+const ticketSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    description: { type: String, required: true },
     status: {
-        type: String,
-        enum: ["open", "assigned", "in-progress", "resolved", "closed", "reopened", "escalated"],
-        default: "open"
+      type: String,
+      enum: ["open", "in-progress", "pending", "resolved", "closed", "escalated"],
+      default: "open",
     },
+    priority: { type: mongoose.Schema.Types.ObjectId, ref: "Priority" },
+    category: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
+    assetId: { type: mongoose.Schema.Types.ObjectId, ref: "Asset" },
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    dueDate: { type: Date },
+    dueAt: { type: Date },
+    slaBreached: { type: Boolean, default: false },
+    isEscalated: { type: Boolean, default: false },
+    escalatedAt: { type: Date },
+    comments: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        userName: { type: String },
+        text: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  { timestamps: true }
+);
 
-    raisedBy: {
-        type: Schema.Types.ObjectId,
-        ref: "User"
-    },
+const Ticket = mongoose.models.Ticket || mongoose.model("Ticket", ticketSchema);
 
-    assignedTo: {
-        type: Schema.Types.ObjectId,
-        ref: "User"
-    },
-
-    departmentId: {
-        type: Schema.Types.ObjectId,
-        ref: "Department"
-    },
-
-    dueAt: {
-        type: Date
-    },
-
-    escalated: {
-        type: Boolean,
-        default: false
-    },
-
-    groupRootId: {
-        type: Schema.Types.ObjectId,
-        ref: "Ticket"
-    },
-
-    dependsOn: [{
-        type: Schema.Types.ObjectId,
-        ref: "Ticket"
-    }],
-
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    }
-});
-
-export default model("Ticket", ticketSchema);
+export default Ticket;

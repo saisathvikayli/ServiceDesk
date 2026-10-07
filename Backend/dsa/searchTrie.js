@@ -11,6 +11,7 @@ class SearchTrie {
   }
 
   insert(word) {
+    if (!word || typeof word !== "string") return;
     let node = this.root;
     const normalized = word.toLowerCase();
 

@@ -1,11 +1,19 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { OpenAI } from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+/**
+ * Helper to extract clean JSON from Gemini responses wrapped in markdown code blocks
+ */
+const parseJSON = (text) => {
+  const cleaned = text.replace(/```json\n?|```/g, "").trim();
+  return JSON.parse(cleaned);
+};
+
 /**
  * Classifies ticket text into category, priority, and root cause analysis
  */
@@ -24,14 +32,11 @@ Respond strictly with a JSON object matching this schema:
 `;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-    });
-    return JSON.parse(response.choices[0].message.content.trim());
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    return parseJSON(text);
   } catch (err) {
-    console.error("AI Classification Error:", err.message);
+    console.warn("AI Classification Warning (Gemini):", err.message);
     return {
       category: "General",
       priority: "Medium",
@@ -60,14 +65,11 @@ Respond strictly with a JSON array of string IDs: ["id1", "id2"]
 `;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1,
-    });
-    return JSON.parse(response.choices[0].message.content.trim());
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    return parseJSON(text);
   } catch (err) {
-    console.error("AI KB Suggestion Error:", err.message);
+    console.warn("AI KB Suggestion Warning (Gemini):", err.message);
     return [];
   }
 };
@@ -89,12 +91,8 @@ Return 3 bullet points covering: status, issue summary, and next recommended act
 `;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-    });
-    return response.choices[0].message.content.trim();
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim();
   } catch (err) {
     return "• Status: Pending\n• Issue: Summary unavailable\n• Action: Inspect ticket details";
   }
@@ -116,12 +114,8 @@ Provide a brief recommended action plan and probable root cause.
 `;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-    });
-    return response.choices[0].message.content.trim();
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim();
   } catch (err) {
     return "Action Plan: Review application logs.\nRoot Cause: Unknown.";
   }

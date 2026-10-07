@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 
+const JWT_SECRET = process.env.JWT_SECRET || "servicedesk_static_jwt_secret_key_2026";
+
 export const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -8,7 +10,7 @@ export const protect = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {

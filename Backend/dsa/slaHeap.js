@@ -75,10 +75,10 @@ class SlaHeap {
 
     const openTickets = await Ticket.find({
       status: { $nin: ["resolved", "closed"] },
-      dueAt: { $ne: null },
+      $or: [{ dueAt: { $ne: null } }, { dueDate: { $ne: null } }],
     });
 
-    openTickets.forEach((ticket) => this.push(ticket._id, ticket.dueAt));
+    openTickets.forEach((ticket) => this.push(ticket._id, ticket.dueAt || ticket.dueDate));
   }
 }
 

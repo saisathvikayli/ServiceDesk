@@ -1,299 +1,334 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Eye, Plus, Search, TicketCheck, Trash2, X } from 'lucide-react'
-import api, { getErrorMessage } from '../lib/api'
+import { useState, useEffect, useContext, useCallback } from 'react'
+import { AuthContext } from '../context/AuthContext'
+import api from '../lib/api'
+import toast from 'react-hot-toast'
+import { AlertTriangle, Clock, MessageSquare } from 'lucide-react'
 
-function TicketPage() {
+export default function TicketPage() {
+  const { user } = useContext(AuthContext)
   const [tickets, setTickets] = useState([])
-  const [categories, setCategories] = useState([])
-  const [priorities, setPriorities] = useState([])
-  const [selected, setSelected] = useState(null)
-  const [formOpen, setFormOpen] = useState(false)
-  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [notice, setNotice] = useState(null)
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    status: 'open',
-    categoryId: '',
-    priorityId: '',
-  })
+  const [filter, setFilter] = useState('all') // 'all', 'assigned', 'unassigned'
+  const [selectedTicket, setSelectedTicket] = useState(null)
+  const [technicians, setTechnicians] = useState([])
+  const [commentText, setCommentText] = useState('')
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const canManageTickets = ['technician', 'manager', 'admin'].includes(user?.role)
+
+  const fetchTickets = useCallback(async () => {
     try {
-      const [ticketsRes, categoriesRes, prioritiesRes] = await Promise.all([
-        api.get('/tickets'),
-        api.get('/categories'),
-        api.get('/priorities'),
-      ])
-      setTickets(ticketsRes.data)
-      setCategories(categoriesRes.data)
-      setPriorities(prioritiesRes.data)
-    } catch (error) {
-      setNotice({ type: 'error', text: getErrorMessage(error) })
+      setLoading(true)
+      const res = await api.get('/tickets')
+      // Unwrap Axios response payload
+      const raw = res?.data ?? res
+      const list = Array.isArray(raw) ? raw : raw?.tickets || raw?.data || []
+      setTickets(list)
+    } catch (err) {
+      console.error('Failed to load tickets:', err)
+      toast.error('Failed to load tickets')
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  const visibleTickets = useMemo(
-    () =>
-      tickets.filter(
-        (t) =>
-          t.title?.toLowerCase().includes(search.toLowerCase()) ||
-          t.description?.toLowerCase().includes(search.toLowerCase())
-      ),
-    [tickets, search]
-  )
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    setNotice(null)
+  const fetchTechnicians = useCallback(async () => {
     try {
-      await api.post('/tickets', form)
-      setNotice({ type: 'success', text: 'Ticket created successfully.' })
-      setFormOpen(false)
-      setForm({ title: '', description: '', status: 'open', categoryId: '', priorityId: '' })
-      await loadData()
-    } catch (error) {
-      setNotice({ type: 'error', text: getErrorMessage(error) })
-    } finally {
-      setSaving(false)
+      const res = await api.get('/users?role=technician')
+      const raw = res?.data ?? res
+      const list = Array.isArray(raw) ? raw : raw?.users || raw?.data || []
+      setTechnicians(list)
+    } catch (err) {
+      console.warn('Could not load technicians:', err?.message)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTickets()
+    if (canManageTickets) {
+      fetchTechnicians()
+    }
+  }, [user, canManageTickets, fetchTickets, fetchTechnicians])
+
+  const handleAssign = async (ticketId, technicianId) => {
+    try {
+      await api.patch(`/tickets/${ticketId}/assign`, { technicianId })
+      toast.success('Ticket reassigned successfully')
+      fetchTickets()
+      if (selectedTicket?._id === ticketId || selectedTicket?.id === ticketId) {
+        setSelectedTicket((prev) => ({ ...prev, assignedTo: technicianId }))
+      }
+    } catch (err) {
+      console.error('Reassign error:', err)
+      toast.error('Failed to reassign ticket')
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this ticket?')) return
+  const handleStatusChange = async (ticketId, status) => {
     try {
-      await api.delete(`/tickets/${id}`)
-      setNotice({ type: 'success', text: 'Ticket deleted.' })
-      if (selected?._id === id) setSelected(null)
-      await loadData()
-    } catch (error) {
-      setNotice({ type: 'error', text: getErrorMessage(error) })
+      await api.patch(`/tickets/${ticketId}/status`, { status })
+      toast.success(`Status updated to ${status}`)
+      fetchTickets()
+      if (selectedTicket?._id === ticketId || selectedTicket?.id === ticketId) {
+        setSelectedTicket((prev) => ({ ...prev, status }))
+      }
+    } catch (err) {
+      console.error('Status change error:', err)
+      toast.error('Failed to update ticket status')
     }
+  }
+
+  const handleAddComment = async (e) => {
+    e.preventDefault()
+    if (!commentText.trim() || !selectedTicket) return
+
+    const tId = selectedTicket._id || selectedTicket.id
+
+    try {
+      const res = await api.post(`/tickets/${tId}/comments`, {
+        text: commentText,
+        comment: commentText,
+      })
+      const newComment = res?.data ?? res
+      toast.success('Comment added')
+      setSelectedTicket((prev) => ({
+        ...prev,
+        comments: [...(prev.comments || []), newComment],
+      }))
+      setCommentText('')
+    } catch (err) {
+      console.error('Add comment error:', err)
+      toast.error('Failed to post comment')
+    }
+  }
+
+  const filteredTickets = tickets.filter((t) => {
+    const assignedId = typeof t.assignedTo === 'object' ? t.assignedTo?._id || t.assignedTo?.id : t.assignedTo
+    const currentUserId = user?._id || user?.id
+
+    if (filter === 'assigned') return String(assignedId) === String(currentUserId)
+    if (filter === 'unassigned') return !assignedId
+    return true
+  })
+
+  const renderPriorityBadge = (priority) => {
+    const pName = typeof priority === 'object' ? priority?.p_name || priority?.name || 'P3' : String(priority || 'P3')
+    const p = pName.toUpperCase()
+    if (p.includes('1') || p.includes('CRITICAL') || p.includes('HIGH')) {
+      return <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded font-bold">P1 - High</span>
+    }
+    if (p.includes('2') || p.includes('MEDIUM')) {
+      return <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded font-semibold">P2 - Medium</span>
+    }
+    return <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded">P3 - Low</span>
+  }
+
+  const renderSlaStatus = (ticket) => {
+    if (ticket.slaBreached || ticket.isBreached) {
+      return (
+        <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+          <AlertTriangle size={12} /> SLA Breached
+        </span>
+      )
+    }
+    if (ticket.dueDate || ticket.slaDeadline) {
+      const due = new Date(ticket.dueDate || ticket.slaDeadline)
+      return (
+        <span className="flex items-center gap-1 text-xs text-[#0c5b59] bg-[#eaf6f3] px-2 py-0.5 rounded">
+          <Clock size={12} /> Due: {due.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      )
+    }
+    return <span className="text-xs text-gray-400">SLA Active</span>
+  }
+
+  const getCategoryName = (cat) => {
+    if (typeof cat === 'object') return cat?.cat_name || cat?.name || 'General'
+    return cat || 'General'
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
-      <div className="mb-9 flex flex-wrap items-end justify-between gap-5">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-[#147a76]">
-            Queue / Tickets
-          </p>
-          <h1 className="text-4xl font-extrabold tracking-[-0.07em] sm:text-5xl">Support Tickets</h1>
+          <h1 className="text-2xl font-bold text-[#17252a]">Support Tickets</h1>
+          <p className="text-sm text-[#718087]">Manage, assign, and track service requests and SLAs.</p>
         </div>
-        <button
-          className="flex h-11 items-center gap-2 bg-[#147a76] px-4 text-xs font-extrabold text-white hover:bg-[#0c5b59]"
-          type="button"
-          onClick={() => setFormOpen(true)}
-        >
-          <Plus size={16} /> New Ticket
-        </button>
       </div>
 
-      {notice && (
-        <div
-          className={`mb-6 flex justify-between border-l-2 px-4 py-3 text-sm ${
-            notice.type === 'error'
-              ? 'border-[#bd4b46] bg-[#fff5f4] text-[#a43e3a]'
-              : 'border-[#147a76] bg-[#eaf6f3] text-[#0c5b59]'
+      {/* Queue Filter Tabs */}
+      <div className="flex gap-2 border-b border-[#dce5e2] pb-2">
+        <button
+          onClick={() => setFilter('all')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition ${
+            filter === 'all' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
           }`}
         >
-          {notice.text}
-          <button type="button" onClick={() => setNotice(null)}>
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
-      <section className="border border-[#dce5e2] bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dce5e2] px-5 py-4">
-          <h2 className="text-base font-extrabold">{tickets.length} tickets</h2>
-          <label className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa8a8]" size={15} />
-            <input
-              className="h-9 w-56 border border-[#dce5e2] bg-[#f5f7f6] pl-9 pr-3 text-xs outline-none focus:border-[#147a76]"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tickets..."
-            />
-          </label>
-        </div>
-
-        {loading ? (
-          <div className="flex min-h-64 items-center justify-center text-sm text-[#718087]">
-            Loading tickets...
-          </div>
-        ) : visibleTickets.length === 0 ? (
-          <div className="flex min-h-64 flex-col items-center justify-center gap-2 text-[#718087]">
-            <TicketCheck size={30} className="text-[#147a76]" />
-            <span className="text-sm">No tickets found.</span>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left">
-              <thead>
-                <tr className="border-b border-[#dce5e2] bg-[#f8faf9] font-mono text-[10px] uppercase text-[#718087]">
-                  <th className="px-5 py-3">ID</th>
-                  <th className="px-5 py-3">Title</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleTickets.map((ticket) => (
-                  <tr key={ticket._id} className="border-b border-[#edf1ef] text-sm hover:bg-[#fbfcfb]">
-                    <td className="px-5 py-4 font-mono text-xs text-[#9aa8a8]">
-                      #{String(ticket._id).slice(-5)}
-                    </td>
-                    <td className="px-5 py-4 font-bold">{ticket.title}</td>
-                    <td className="px-5 py-4">
-                      <span className="rounded-full bg-[#eaf6f3] px-2 py-1 font-mono text-[10px] uppercase text-[#0c5b59]">
-                        {ticket.status || 'open'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          className="flex h-8 w-8 items-center justify-center text-[#147a76] hover:bg-[#eaf6f3]"
-                          type="button"
-                          onClick={() => setSelected(ticket)}
-                        >
-                          <Eye size={15} />
-                        </button>
-                        <button
-                          className="flex h-8 w-8 items-center justify-center text-[#bd4b46] hover:bg-[#fff5f4]"
-                          type="button"
-                          onClick={() => handleDelete(ticket._id)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          All Queue ({tickets.length})
+        </button>
+        {canManageTickets && (
+          <>
+            <button
+              onClick={() => setFilter('assigned')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition ${
+                filter === 'assigned' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
+              }`}
+            >
+              Assigned to Me
+            </button>
+            <button
+              onClick={() => setFilter('unassigned')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition ${
+                filter === 'unassigned' ? 'bg-[#0c5b59] text-white' : 'text-[#718087] hover:bg-[#eaf6f3]'
+              }`}
+            >
+              Unassigned Queue
+            </button>
+          </>
         )}
-      </section>
+      </div>
 
-      {/* New Ticket Modal */}
-      {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17252a]/40 p-5">
-          <form className="w-full max-w-lg bg-white p-6 sm:p-8" onSubmit={handleSubmit}>
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-extrabold">Create Ticket</h2>
-              <button type="button" onClick={() => setFormOpen(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="grid gap-4 text-xs font-bold">
-              <label className="grid gap-1">
-                Title
-                <input
-                  className="h-11 border border-[#dce5e2] bg-[#f5f7f6] px-3 font-normal outline-none focus:border-[#147a76]"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  required
-                />
-              </label>
-              <label className="grid gap-1">
-                Description
-                <textarea
-                  className="min-h-24 border border-[#dce5e2] bg-[#f5f7f6] p-3 font-normal outline-none focus:border-[#147a76]"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  required
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <label className="grid gap-1">
-                  Category
-                  <select
-                    className="h-11 border border-[#dce5e2] bg-[#f5f7f6] px-3 font-normal outline-none focus:border-[#147a76]"
-                    value={form.categoryId}
-                    onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.cat_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1">
-                  Priority
-                  <select
-                    className="h-11 border border-[#dce5e2] bg-[#f5f7f6] px-3 font-normal outline-none focus:border-[#147a76]"
-                    value={form.priorityId}
-                    onChange={(e) => setForm({ ...form, priorityId: e.target.value })}
-                  >
-                    <option value="">Select Priority</option>
-                    {priorities.map((p) => (
-                      <option key={p._id} value={p._id}>
-                        {p.p_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Ticket List */}
+        <div className="lg:col-span-2 space-y-3">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500 bg-white rounded-lg border border-[#dce5e2]">Loading tickets...</div>
+          ) : filteredTickets.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 bg-white rounded-lg border border-[#dce5e2]">No tickets found in this view.</div>
+          ) : (
+            filteredTickets.map((t) => {
+              const ticketId = t._id || t.id
+              const isSelected = selectedTicket?._id === ticketId || selectedTicket?.id === ticketId
+
+              return (
+                <div
+                  key={ticketId}
+                  onClick={() => setSelectedTicket(t)}
+                  className={`p-4 bg-white rounded-lg border cursor-pointer transition hover:border-[#0c5b59] ${
+                    isSelected ? 'ring-2 ring-[#0c5b59] border-transparent' : 'border-[#dce5e2]'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-[#17252a]">{t.title || t.subject || 'Untitled Ticket'}</h3>
+                    {renderPriorityBadge(t.priority)}
+                  </div>
+
+                  <p className="text-sm text-[#718087] line-clamp-2 mb-3">{t.description || 'No description provided.'}</p>
+
+                  <div className="flex items-center justify-between text-xs text-[#718087] border-t pt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono bg-gray-100 px-2 py-0.5 rounded uppercase">{t.status || 'OPEN'}</span>
+                      <span>• {getCategoryName(t.category)}</span>
+                    </div>
+                    <div>{renderSlaStatus(t)}</div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Selected Ticket Drawer / Details */}
+        <div className="bg-white p-5 rounded-lg border border-[#dce5e2] h-fit space-y-4">
+          {selectedTicket ? (
+            <>
+              <div className="border-b pb-3">
+                <div className="flex justify-between items-center mb-1">
+                  {renderPriorityBadge(selectedTicket.priority)}
+                  <span className="text-xs text-gray-400 font-mono">
+                    ID: {String(selectedTicket._id || selectedTicket.id).slice(-6)}
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold text-[#17252a]">{selectedTicket.title || selectedTicket.subject}</h2>
+                <p className="text-xs text-gray-500 mt-1">Status: <strong className="uppercase">{selectedTicket.status}</strong></p>
               </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                className="h-11 border border-[#dce5e2] px-4 text-xs font-bold"
-                type="button"
-                onClick={() => setFormOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="h-11 bg-[#147a76] px-5 text-xs font-extrabold text-white hover:bg-[#0c5b59]"
-                type="submit"
-                disabled={saving}
-              >
-                {saving ? 'Creating...' : 'Create Ticket'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
-      {/* View Ticket Details Modal */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17252a]/40 p-5">
-          <div className="w-full max-w-lg bg-white p-6 sm:p-8">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="font-mono text-xs text-[#9aa8a8]">#{String(selected._id).slice(-5)}</span>
-              <button type="button" onClick={() => setSelected(null)}>
-                <X size={20} />
-              </button>
+              {/* Manager Actions */}
+              {canManageTickets && (
+                <div className="space-y-3 bg-[#f5f7f6] p-3 rounded-md border border-[#dce5e2]">
+                  <p className="text-xs font-bold text-[#0c5b59] uppercase tracking-wider">Management Actions</p>
+                  
+                  {/* Reassign Ticket */}
+                  <div>
+                    <label className="block text-xs text-[#718087] mb-1">Assign Technician</label>
+                    <select
+                      onChange={(e) => handleAssign(selectedTicket._id || selectedTicket.id, e.target.value)}
+                      value={typeof selectedTicket.assignedTo === 'object' ? selectedTicket.assignedTo?._id : selectedTicket.assignedTo || ''}
+                      className="w-full text-xs p-2 border rounded bg-white"
+                    >
+                      <option value="">-- Unassigned --</option>
+                      {technicians.map((tech) => (
+                        <option key={tech._id || tech.id} value={tech._id || tech.id}>
+                          {tech.name || tech.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Change Status */}
+                  <div>
+                    <label className="block text-xs text-[#718087] mb-1">Update Status</label>
+                    <select
+                      onChange={(e) => handleStatusChange(selectedTicket._id || selectedTicket.id, e.target.value)}
+                      value={selectedTicket.status || 'open'}
+                      className="w-full text-xs p-2 border rounded bg-white"
+                    >
+                      <option value="open">Open</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="pending">Pending Vendor</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase">Description</p>
+                <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{selectedTicket.description || 'No description provided.'}</p>
+              </div>
+
+              {/* Comments Thread */}
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1">
+                  <MessageSquare size={14} /> Activity & Comments
+                </p>
+
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                  {(selectedTicket.comments || []).length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">No comments yet.</p>
+                  ) : (
+                    selectedTicket.comments.map((c, idx) => (
+                      <div key={idx} className="bg-gray-50 p-2 rounded text-xs border">
+                        <p className="font-semibold text-gray-800">{c.userName || c.user?.name || 'Support Agent'}</p>
+                        <p className="text-gray-600">{c.text || c.comment}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form onSubmit={handleAddComment} className="flex gap-2 pt-2">
+                  <input
+                    type="text"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add a comment..."
+                    className="flex-1 text-xs p-2 border rounded"
+                  />
+                  <button type="submit" className="bg-[#0c5b59] text-white text-xs px-3 py-2 rounded font-semibold">
+                    Post
+                  </button>
+                </form>
+              </div>
+            </>
+          ) : (
+            <div className="py-12 text-center text-gray-400 text-sm">
+              Select a ticket from the queue to view full details and SLA metrics.
             </div>
-            <h2 className="text-xl font-extrabold">{selected.title}</h2>
-            <p className="mt-3 text-sm text-[#718087]">{selected.description}</p>
-            <div className="mt-6 flex justify-end">
-              <button
-                className="h-11 border border-[#dce5e2] px-4 text-xs font-bold"
-                type="button"
-                onClick={() => setSelected(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
-
-export default TicketPage

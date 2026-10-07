@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import { useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
@@ -56,6 +56,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/dashboard"
+          element={
+            <LayoutWrapper>
+              <Dashboard />
+            </LayoutWrapper>
+          }
+        />
+        <Route
           path="/tickets"
           element={
             <LayoutWrapper>
@@ -71,6 +79,19 @@ function AppRoutes() {
             </LayoutWrapper>
           }
         />
+        <Route
+  path="/knowledge-articles"
+  element={
+    <LayoutWrapper>
+      <ResourcePage 
+        config={{
+          ...(resourceConfigs.knowledgeArticles || resourceConfigs['knowledge-articles']),
+          canCreate: ['admin', 'manager', 'technician'].includes(user?.role)
+        }} 
+      />
+    </LayoutWrapper>
+  }
+/>
         <Route
           path="/categories"
           element={
@@ -92,6 +113,22 @@ function AppRoutes() {
           element={
             <LayoutWrapper>
               <ResourcePage config={resourceConfigs.slaPolicies} />
+            </LayoutWrapper>
+          }
+        />
+        <Route
+          path="/assets"
+          element={
+            <LayoutWrapper>
+              <ResourcePage config={resourceConfigs.assets} />
+            </LayoutWrapper>
+          }
+        />
+        <Route
+          path="/vendors"
+          element={
+            <LayoutWrapper>
+              <ResourcePage config={resourceConfigs.vendors} />
             </LayoutWrapper>
           }
         />

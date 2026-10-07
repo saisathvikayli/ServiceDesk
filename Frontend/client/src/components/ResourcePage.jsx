@@ -1,317 +1,245 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Edit3, Plus, Search, Trash2, X } from 'lucide-react'
-import api, { getErrorMessage } from '../lib/api'
+import { useState, useEffect, useContext, useCallback } from 'react'
+import { AuthContext } from '../context/AuthContext'
+import { resourceConfigs } from '../appConfig'
+import api from '../lib/api'
+import toast from 'react-hot-toast'
+import { Plus, Trash2, AlertCircle } from 'lucide-react'
 
-function ResourcePage({ config }) {
-  const {
-    endpoint,
-    title,
-    eyebrow,
-    description,
-    singular,
-    icon: Icon,
-    fields,
-    columns,
-    canCreate = true,
-  } = config
+export default function ResourcePage({ resourceKey, config: passedConfig }) {
+  const { user } = useContext(AuthContext)
+  const config = passedConfig || resourceConfigs[resourceKey]
 
-  const [records, setRecords] = useState([])
-  const [form, setForm] = useState({})
-  const [editingId, setEditingId] = useState(null)
-  const [search, setSearch] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
+  const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [notice, setNotice] = useState(null)
+  const [errorMsg, setErrorMsg] = useState(null)
+  const [showModal, setShowModal] = useState(false)
+  const [formData, setFormData] = useState({})
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const initFormData = useCallback(() => {
+    if (!config) return
+    const initial = {}
+    config.fields.forEach((f) => {
+      initial[f.name] = f.defaultValue !== undefined ? f.defaultValue : ''
+    })
+    setFormData(initial)
+  }, [config])
+
+  const fetchItems = useCallback(async () => {
+    if (!config) return
     try {
-      const response = await api.get(endpoint)
-      setRecords(response.data)
-    } catch (error) {
-      setNotice({ type: 'error', text: getErrorMessage(error) })
+      setLoading(true)
+      setErrorMsg(null)
+      const res = await api.get(config.endpoint)
+      const raw = res?.data ?? res
+      const list = Array.isArray(raw) ? raw : raw?.data || []
+      setItems(list)
+    } catch (err) {
+      console.error(`Failed to load ${config.singular || resourceKey}:`, err)
+      const status = err?.response?.status
+      if (status === 403) {
+        setErrorMsg('Access Restricted: Your user role does not have permission to view this page.')
+      } else {
+        setErrorMsg('Failed to load data. Please verify backend server route.')
+      }
     } finally {
       setLoading(false)
     }
-  }, [endpoint])
+  }, [config, resourceKey])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (config) {
+      fetchItems()
+      initFormData()
+    }
+  }, [config, fetchItems, initFormData])
 
-  const visibleRecords = useMemo(
-    () =>
-      records.filter((record) =>
-        JSON.stringify(record).toLowerCase().includes(search.toLowerCase())
-      ),
-    [records, search]
-  )
-
-  const openCreate = () => {
-    setEditingId(null)
-    setForm(Object.fromEntries(fields.map((field) => [field.name, field.defaultValue ?? ''])))
-    setModalOpen(true)
-  }
-
-  const openEdit = (record) => {
-    setEditingId(record._id)
-    setForm(Object.fromEntries(fields.map((field) => [field.name, record[field.name] ?? ''])))
-    setModalOpen(true)
-  }
-
-  const closeModal = () => {
-    if (!saving) setModalOpen(false)
-  }
-
-  const save = async (event) => {
-    event.preventDefault()
-    setSaving(true)
-    setNotice(null)
+  const handleCreate = async (e) => {
+    e.preventDefault()
     try {
-      if (editingId) {
-        await api.put(`${endpoint}/${editingId}`, form)
-      } else {
-        await api.post(endpoint, form)
-      }
-      setModalOpen(false)
-      setNotice({
-        type: 'success',
-        text: `${singular} ${editingId ? 'updated' : 'created'} successfully.`,
-      })
-      await load()
-    } catch (error) {
-      setNotice({ type: 'error', text: getErrorMessage(error) })
-    } finally {
-      setSaving(false)
+      await api.post(config.endpoint, formData)
+      toast.success(`${config.singular} created successfully`)
+      setShowModal(false)
+      initFormData()
+      fetchItems()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || `Failed to create ${config.singular}`)
     }
   }
 
-  const remove = async (id) => {
-    if (!window.confirm(`Delete this ${singular.toLowerCase()}?`)) return
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this item?')) return
     try {
-      await api.delete(`${endpoint}/${id}`)
-      setNotice({ type: 'success', text: `${singular} deleted successfully.` })
-      await load()
-    } catch (error) {
-      setNotice({ type: 'error', text: getErrorMessage(error) })
+      await api.delete(`${config.endpoint}/${id}`)
+      toast.success(`${config.singular} deleted`)
+      fetchItems()
+    } catch {
+      toast.error(`Failed to delete ${config.singular}`)
     }
   }
 
-  const displayValue = (record, column) => {
-    const value = record[column.key]
-    if (value === undefined || value === null || value === '') return '—'
-    if (column.render) return column.render(value, record)
-    return String(value)
+  if (!config) {
+    return <div className="p-8 text-center text-gray-500">Resource configuration not found.</div>
   }
+
+  const Icon = config.icon
+  const canCreate = !config.canCreateRoles || config.canCreateRoles.includes(user?.role)
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
-      <div className="mb-9 flex flex-wrap items-end justify-between gap-5">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.18em] text-[#147a76]">
-            {eyebrow}
-          </p>
-          <div className="flex items-center gap-4">
-            <span className="flex h-12 w-12 items-center justify-center bg-[#eaf6f3] text-[#147a76]">
-              <Icon size={23} />
-            </span>
-            <h1 className="text-4xl font-extrabold tracking-[-0.07em] sm:text-5xl">{title}</h1>
-          </div>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-[#718087]">{description}</p>
+          <span className="text-xs font-mono text-[#0c5b59] uppercase tracking-wider">{config.eyebrow}</span>
+          <h1 className="text-2xl font-bold text-[#17252a] flex items-center gap-2 mt-1">
+            {Icon && <Icon size={24} className="text-[#0c5b59]" />}
+            {config.title}
+          </h1>
+          <p className="text-sm text-[#718087] mt-1">{config.description}</p>
         </div>
+
         {canCreate && (
           <button
-            className="flex h-11 items-center gap-2 bg-[#147a76] px-4 text-xs font-extrabold text-white hover:bg-[#0c5b59]"
-            type="button"
-            onClick={openCreate}
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-[#0c5b59] text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-[#094745] transition self-start sm:self-auto"
           >
-            <Plus size={16} /> New {singular}
+            <Plus size={16} /> Add {config.singular}
           </button>
         )}
       </div>
 
-      {notice && (
-        <div
-          className={`mb-6 flex justify-between border-l-2 px-4 py-3 text-sm ${
-            notice.type === 'error'
-              ? 'border-[#bd4b46] bg-[#fff5f4] text-[#a43e3a]'
-              : 'border-[#147a76] bg-[#eaf6f3] text-[#0c5b59]'
-          }`}
-        >
-          {notice.text}
-          <button type="button" onClick={() => setNotice(null)} title="Dismiss">
-            <X size={16} />
-          </button>
+      {/* Error / Restricted Warning */}
+      {errorMsg && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm flex items-center gap-2">
+          <AlertCircle size={18} />
+          <span>{errorMsg}</span>
         </div>
       )}
 
-      <section className="border border-[#dce5e2] bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dce5e2] px-5 py-4">
-          <h2 className="text-base font-extrabold tracking-[-0.03em]">
-            {records.length} {singular.toLowerCase()}
-            {records.length === 1 ? '' : 's'}
-          </h2>
-          <label className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa8a8]" size={15} />
-            <input
-              className="h-9 w-56 border border-[#dce5e2] bg-[#f5f7f6] pl-9 pr-3 text-xs outline-none focus:border-[#147a76]"
-              aria-label={`Search ${title}`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={`Search ${title.toLowerCase()}`}
-            />
-          </label>
-        </div>
-
+      {/* Data Table */}
+      <div className="bg-white rounded-lg border border-[#dce5e2] overflow-hidden">
         {loading ? (
-          <div className="flex min-h-64 items-center justify-center text-sm text-[#718087]">
-            Loading {title.toLowerCase()}...
-          </div>
-        ) : visibleRecords.length === 0 ? (
-          <div className="flex min-h-64 flex-col items-center justify-center gap-2 text-[#718087]">
-            <Icon size={30} className="text-[#147a76]" />
-            <strong className="text-sm text-[#17252a]">No {title.toLowerCase()} found</strong>
-            <span className="text-xs">
-              {search ? 'Try a different search.' : `Create the first ${singular.toLowerCase()} to get started.`}
-            </span>
+          <div className="p-8 text-center text-gray-500 text-sm font-mono">Loading data...</div>
+        ) : items.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-sm">
+            No {config.title.toLowerCase()} found. {canCreate && 'Click "Add" above to create one.'}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left">
+            <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-[#dce5e2] bg-[#f8faf9]">
-                  {columns.map((column) => (
-                    <th
-                      className="px-5 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#718087]"
-                      key={column.key}
-                    >
-                      {column.label}
+                <tr className="bg-[#f5f7f6] border-b border-[#dce5e2] text-[#718087] font-semibold text-xs uppercase tracking-wider">
+                  {config.columns.map((col) => (
+                    <th key={col.key} className="p-3.5">
+                      {col.label}
                     </th>
                   ))}
-                  <th className="px-5 py-3" />
+                  <th className="p-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {visibleRecords.map((record) => (
-                  <tr className="border-b border-[#edf1ef] hover:bg-[#fbfcfb]" key={record._id}>
-                    {columns.map((column) => (
-                      <td className="px-5 py-4 text-sm" key={column.key}>
-                        {column.badge ? (
-                          <span className="rounded-full bg-[#eaf6f3] px-2 py-1 font-mono text-[10px] uppercase text-[#0c5b59]">
-                            {displayValue(record, column)}
-                          </span>
-                        ) : (
-                          displayValue(record, column)
+              <tbody className="divide-y divide-[#dce5e2]">
+                {items.map((item) => {
+                  const itemId = item._id || item.id
+                  return (
+                    <tr key={itemId} className="hover:bg-gray-50 transition">
+                      {config.columns.map((col) => {
+                        const val = item[col.key]
+                        return (
+                          <td key={col.key} className="p-3.5 text-[#17252a]">
+                            {col.render
+                              ? col.render(val, item)
+                              : col.badge ? (
+                                  <span className="bg-[#eaf6f3] text-[#0c5b59] font-semibold text-xs px-2 py-0.5 rounded">
+                                    {String(val)}
+                                  </span>
+                                ) : (
+                                  String(val ?? '-')
+                                )}
+                          </td>
+                        )
+                      })}
+                      <td className="p-3.5 text-right">
+                        {user?.role === 'admin' && (
+                          <button
+                            onClick={() => handleDelete(itemId)}
+                            className="text-red-500 hover:text-red-700 p-1 transition"
+                            title="Delete item"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         )}
                       </td>
-                    ))}
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          className="flex h-8 w-8 items-center justify-center text-[#147a76] hover:bg-[#eaf6f3]"
-                          type="button"
-                          onClick={() => openEdit(record)}
-                          title={`Edit ${singular}`}
-                        >
-                          <Edit3 size={15} />
-                        </button>
-                        <button
-                          className="flex h-8 w-8 items-center justify-center text-[#bd4b46] hover:bg-[#fff5f4]"
-                          type="button"
-                          onClick={() => remove(record._id)}
-                          title={`Delete ${singular}`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
-      </section>
+      </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17252a]/40 p-5">
-          <form className="max-h-[90vh] w-full max-w-lg overflow-y-auto bg-white p-6 sm:p-8" onSubmit={save}>
-            <div className="mb-7 flex items-start justify-between">
-              <div>
-                <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#147a76]">
-                  {editingId ? 'Edit record' : 'New record'}
-                </p>
-                <h2 className="text-2xl font-extrabold tracking-[-0.05em]">
-                  {editingId ? `Edit ${singular}` : `New ${singular}`}
-                </h2>
-              </div>
-              <button type="button" onClick={closeModal} title="Close">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="grid gap-4">
-              {fields.map((field) => (
-                <label className="grid gap-2 text-xs font-bold" key={field.name}>
-                  {field.label}
+      {/* Modal Form */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg border max-w-md w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-[#17252a]">Add New {config.singular}</h3>
+            <form onSubmit={handleCreate} className="space-y-3">
+              {config.fields.map((field) => (
+                <div key={field.name}>
+                  <label className="block text-xs font-semibold text-[#718087] mb-1">{field.label}</label>
                   {field.type === 'select' ? (
                     <select
-                      className="h-11 border border-[#dce5e2] bg-[#f5f7f6] px-3 text-sm font-normal outline-none focus:border-[#147a76]"
-                      value={form[field.name] || ''}
-                      onChange={(event) => setForm({ ...form, [field.name]: event.target.value })}
+                      value={formData[field.name] || ''}
+                      onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                      className="w-full text-xs p-2 border rounded bg-white"
                       required={field.required}
                     >
-                      {field.options.map((option) => (
-                        <option value={option.value} key={option.value}>
-                          {option.label}
+                      {field.options?.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
                         </option>
                       ))}
                     </select>
                   ) : field.type === 'textarea' ? (
                     <textarea
-                      className="min-h-28 border border-[#dce5e2] bg-[#f5f7f6] px-3 py-2 text-sm font-normal outline-none focus:border-[#147a76]"
-                      value={form[field.name] || ''}
-                      onChange={(event) => setForm({ ...form, [field.name]: event.target.value })}
-                      required={field.required}
+                      value={formData[field.name] || ''}
+                      onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
                       placeholder={field.placeholder}
+                      className="w-full text-xs p-2 border rounded"
+                      rows={3}
+                      required={field.required}
                     />
                   ) : (
                     <input
-                      className="h-11 border border-[#dce5e2] bg-[#f5f7f6] px-3 text-sm font-normal outline-none focus:border-[#147a76]"
                       type={field.type || 'text'}
-                      value={form[field.name] || ''}
-                      onChange={(event) =>
-                        setForm({
-                          ...form,
-                          [field.name]: field.type === 'number' ? Number(event.target.value) : event.target.value,
-                        })
-                      }
-                      required={field.required}
+                      value={formData[field.name] || ''}
+                      onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
                       placeholder={field.placeholder}
+                      className="w-full text-xs p-2 border rounded"
+                      required={field.required}
                     />
                   )}
-                </label>
+                </div>
               ))}
-            </div>
 
-            <div className="mt-8 flex justify-end gap-2">
-              <button className="h-11 border border-[#dce5e2] px-4 text-xs font-bold" type="button" onClick={closeModal}>
-                Cancel
-              </button>
-              <button
-                className="h-11 bg-[#147a76] px-5 text-xs font-extrabold text-white hover:bg-[#0c5b59]"
-                type="submit"
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : editingId ? 'Save changes' : `Create ${singular.toLowerCase()}`}
-              </button>
-            </div>
-          </form>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 text-xs bg-[#0c5b59] text-white rounded font-semibold"
+                >
+                  Save {config.singular}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
   )
 }
-
-export default ResourcePage

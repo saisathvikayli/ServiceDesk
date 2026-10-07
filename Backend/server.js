@@ -19,6 +19,9 @@ import searchTrie from "./dsa/searchTrie.js";
 import Ticket from "./models/Ticket.js";
 import KnowledgeArticle from "./models/KnowledgeArticle.js";
 import "./jobs/slaEscalationJob.js"; // schedules the cron job as a side effect on import
+import analyticsRoutes from "./routes/analyticsRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+
 
 dotenv.config();
 
@@ -35,6 +38,7 @@ app.use(express.json());
 app.use(cookieParser()); // needed to read the refresh token cookie
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/priorities", priorityRoutes);
 app.use("/api/sla-policies", slaPolicyRoutes);
@@ -44,6 +48,7 @@ app.use("/api/vendors", vendorRoutes);
 app.use("/api/knowledge-articles", knowledgeArticleRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/search", searchRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -11,11 +11,10 @@ function CategoryWorkspace({ token, user, onLogout }) {
   const [editingId, setEditingId] = useState(null)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
-  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [loadingCategories, setLoadingCategories] = useState(true)
   const [notice, setNotice] = useState(null)
 
   const loadCategories = useCallback(async () => {
-    setLoadingCategories(true)
     try {
       const response = await api.get('/categories', { headers: { Authorization: `Bearer ${token}` } })
       setCategories(response.data)
@@ -232,7 +231,10 @@ function CategoryWorkspace({ token, user, onLogout }) {
                 </label>
                 <button
                   type="button"
-                  onClick={loadCategories}
+                  onClick={() => {
+                    setLoadingCategories(true)
+                    loadCategories()
+                  }}
                   disabled={loadingCategories}
                   title="Refresh categories"
                   className="flex h-9 w-9 items-center justify-center bg-[#f5f7f6] text-[#147a76] transition hover:bg-[#eaf6f3] disabled:opacity-50"

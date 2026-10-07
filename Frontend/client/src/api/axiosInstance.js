@@ -29,7 +29,7 @@ API.interceptors.response.use(
         localStorage.setItem('servicedesk_token', data.token);
         originalRequest.headers.Authorization = `Bearer ${data.token}`;
         return API(originalRequest);
-      } catch (refreshErr) {
+      } catch {
         localStorage.removeItem('servicedesk_token');
         localStorage.removeItem('servicedesk_user');
         window.location.href = '/login';

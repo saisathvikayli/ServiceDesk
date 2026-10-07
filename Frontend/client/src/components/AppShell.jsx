@@ -19,21 +19,23 @@ import {
 } from 'lucide-react'
 
 const navigation = [
-  { id: 'dashboard', label: 'Overview', icon: BarChart3 },
-  { id: 'tickets', label: 'Tickets', icon: ClipboardList },
-  { id: 'categories', label: 'Categories', icon: Boxes, admin: true },
-  { id: 'priorities', label: 'Priorities', icon: Gauge, admin: true },
-  { id: 'sla-policies', label: 'SLA policies', icon: Network, admin: true },
-  { id: 'assets', label: 'Assets', icon: HardDrive, admin: true },
-  { id: 'vendors', label: 'Vendors', icon: Truck, admin: true },
-  { id: 'knowledge-articles', label: 'Knowledge base', icon: BookOpen },
+  { id: 'dashboard', label: 'Overview', icon: BarChart3, roles: ['employee', 'technician', 'manager', 'admin'] },
+  { id: 'tickets', label: 'Tickets', icon: ClipboardList, roles: ['employee', 'technician', 'manager', 'admin'] },
+  { id: 'categories', label: 'Categories', icon: Boxes, roles: ['admin'] },
+  { id: 'priorities', label: 'Priorities', icon: Gauge, roles: ['admin'] },
+  { id: 'sla-policies', label: 'SLA policies', icon: Network, roles: ['manager', 'admin'] },
+  { id: 'assets', label: 'Assets', icon: HardDrive, roles: ['technician', 'manager', 'admin'] },
+  { id: 'vendors', label: 'Vendors', icon: Truck, roles: ['technician', 'manager', 'admin'] },
+  { id: 'knowledge-articles', label: 'Knowledge base', icon: BookOpen, roles: ['employee', 'technician', 'manager', 'admin'] },
 ]
 
-function AppShell({ user, activePage, onNavigate, onLogout, children }) {
+export default function AppShell({ user, activePage, onNavigate, onLogout, children }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const canAdmin = ['admin'].includes(user?.role)
-  const visibleNavigation = navigation.filter((item) => !item.admin || canAdmin)
+
+  const visibleNavigation = navigation.filter(
+    (item) => !item.roles || item.roles.includes(user?.role)
+  )
 
   const navigate = (page) => {
     onNavigate(page)
@@ -105,8 +107,8 @@ function AppShell({ user, activePage, onNavigate, onLogout, children }) {
             onClick={() => navigate('profile')}
             title={collapsed ? 'Profile' : undefined}
             className={`flex w-full items-center gap-3 px-3 py-3 text-left text-sm text-[#b8d5d0] hover:bg-white/8 hover:text-white ${
-              collapsed ? 'justify-center' : ''
-            }`}
+              activePage === 'profile' ? 'bg-white/12 font-bold text-white' : ''
+            } ${collapsed ? 'justify-center' : ''}`}
           >
             <Settings2 size={18} />
             {!collapsed && <span>Account settings</span>}
@@ -147,9 +149,15 @@ function AppShell({ user, activePage, onNavigate, onLogout, children }) {
               </strong>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          <button
+            type="button"
+            onClick={() => navigate('profile')}
+            className="flex items-center gap-3 rounded-lg p-1.5 transition hover:bg-[#f0f4f3] focus:outline-none"
+            title="View Profile"
+          >
             <span className="hidden text-right sm:block">
-              <strong className="block text-xs">{user?.name || user?.email}</strong>
+              <strong className="block text-xs text-[#17252a]">{user?.name || user?.email}</strong>
               <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#718087]">
                 {user?.role}
               </span>
@@ -157,12 +165,10 @@ function AppShell({ user, activePage, onNavigate, onLogout, children }) {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eaf6f3] font-bold text-[#0c5b59]">
               {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
             </span>
-          </div>
+          </button>
         </header>
         <main>{children}</main>
       </div>
     </div>
   )
 }
-
-export default AppShell

@@ -16,19 +16,49 @@ import { protect, authorize } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.use(protect);
+
+// View routes (All authenticated roles)
 router.get("/", getTickets);
 router.get("/:id", getTicketById);
 
-router.post("/", authorize("employee", "technician", "admin"), createTicket);
-router.put("/:id", authorize("technician", "admin"), updateTicket);
-router.delete("/:id", authorize("admin"), deleteTicket);
+// Ticket creation (Employees, Technicians, Managers, Admins)
+router.post(
+  "/",
+  authorize("employee", "technician", "manager", "admin"),
+  createTicket
+);
 
-router.patch("/:id/assign", authorize("technician", "manager", "admin"), assignTicket);
-router.patch("/:id/status", authorize("technician", "admin"), updateStatus);
+// Ticket management & assignments (Technicians, Managers, Admins)
+router.put(
+  "/:id",
+  authorize("technician", "manager", "admin"),
+  updateTicket
+);
+router.patch(
+  "/:id/assign",
+  authorize("technician", "manager", "admin"),
+  assignTicket
+);
+router.patch(
+  "/:id/status",
+  authorize("technician", "manager", "admin"),
+  updateStatus
+);
 
-router.post("/:id/comments", authorize("employee", "technician", "manager", "admin"), addComment);
+// Comments & Work logs
+router.post(
+  "/:id/comments",
+  authorize("employee", "technician", "manager", "admin"),
+  addComment
+);
 router.get("/:id/comments", getComments);
+router.post(
+  "/:id/worklogs",
+  authorize("technician", "manager", "admin"),
+  addWorkLog
+);
 
-router.post("/:id/worklogs", authorize("technician", "admin"), addWorkLog);
+// Ticket deletion (STRICTLY Admin only)
+router.delete("/:id", authorize("admin"), deleteTicket);
 
 export default router;
