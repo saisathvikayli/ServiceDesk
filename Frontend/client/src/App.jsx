@@ -8,6 +8,7 @@ import ProtectedRoute from './routes/ProtectedRoute.jsx';
 import AppShell from './components/AppShell';
 import Dashboard from './components/Dashboard';
 import LoginScreen from './components/LoginScreen';
+import LandingPage from './pages/LandingPage';
 import ResourcePage from './components/ResourcePage';
 import TicketPage from './components/TicketPage';
 import ProfilePage from './pages/ProfilePage';
@@ -37,24 +38,22 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* Public Landing Route */}
+      <Route
+        path="/"
+        element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />}
+      />
+
       {/* Public Login Route */}
       <Route
         path="/login"
         element={
-          user ? <Navigate to="/" replace /> : <LoginScreen onAuthenticated={login} />
+          user ? <Navigate to="/dashboard" replace /> : <LoginScreen onAuthenticated={login} />
         }
       />
 
       {/* Protected Routes */}
       <Route element={<ProtectedRoute allowedRoles={['employee', 'technician', 'manager', 'admin']} />}>
-        <Route
-          path="/"
-          element={
-            <LayoutWrapper>
-              <Dashboard />
-            </LayoutWrapper>
-          }
-        />
         <Route
           path="/dashboard"
           element={
@@ -80,18 +79,18 @@ function AppRoutes() {
           }
         />
         <Route
-  path="/knowledge-articles"
-  element={
-    <LayoutWrapper>
-      <ResourcePage 
-        config={{
-          ...(resourceConfigs.knowledgeArticles || resourceConfigs['knowledge-articles']),
-          canCreate: ['admin', 'manager', 'technician'].includes(user?.role)
-        }} 
-      />
-    </LayoutWrapper>
-  }
-/>
+          path="/knowledge-articles"
+          element={
+            <LayoutWrapper>
+              <ResourcePage
+                config={{
+                  ...(resourceConfigs.knowledgeArticles || resourceConfigs['knowledge-articles']),
+                  canCreate: ['admin', 'manager', 'technician'].includes(user?.role)
+                }}
+              />
+            </LayoutWrapper>
+          }
+        />
         <Route
           path="/categories"
           element={
