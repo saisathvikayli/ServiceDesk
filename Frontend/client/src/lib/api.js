@@ -2,14 +2,14 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Replace with your actual backend URL
+  baseURL: '/api', // Replace with your actual backend URL
 })
 
 api.interceptors.request.use(
   (config) => {
     // Look specifically for 'servicedesk_token'
     const token = localStorage.getItem('servicedesk_token')
-    
+
     if (token) {
       const cleanToken = token.replace(/^"(.*)"$/, '$1').trim()
       config.headers.Authorization = `Bearer ${cleanToken}`
