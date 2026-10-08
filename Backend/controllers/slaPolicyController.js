@@ -1,5 +1,5 @@
 // CORRECT
-import SLAPolicy from '../models/slapolicy.js'
+import slaPolicy from '../models/slapolicy.js'
 // @desc    Get all SLA policies
 // @route   GET /api/sla-policies
 // @access  Private (Manager, Admin)

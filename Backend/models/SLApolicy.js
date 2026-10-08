@@ -23,4 +23,4 @@ const slaSchema = new Schema({
     }
 });
 
-export default model("SLAPolicy", slaSchema);
+export default model("slaPolicy", slaSchema);
